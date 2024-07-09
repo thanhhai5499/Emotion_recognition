@@ -9,12 +9,13 @@ import cv2
 import time
 from src.camera import RealSenseCamera
 from src.processor import EmotionRecognitionProcessor
+from src.arduino_reader import ArduinoReader
 
 class EmotionRecognitionApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Emotion Recognition")
-        self.root.geometry("1000x560")  # Set fixed size for the window
+        self.root.geometry("1000x600")  # Set fixed size for the window
 
         self.video_frame = Label(root)
         self.video_frame.place(x=10, y=10, width=480, height=360)
@@ -25,20 +26,26 @@ class EmotionRecognitionApp:
         self.special_message = Label(root, text="Thông báo", font=("Helvetica", 16), fg="orange", bg="white", width=25, anchor="w")
         self.special_message.place(x=10, y=380)
 
-        self.emotion_label = Label(root, text="Cảm Xúc:", font=("Helvetica", 16), bg="light blue", width=10, anchor="w")
+        self.emotion_label = Label(root, text="Cảm Xúc:", font=("Helvetica", 16), bg="light blue", width=15, anchor="w")
         self.emotion_label.place(x=10, y=420)
 
         self.emotion_value = Label(root, text="", font=("Helvetica", 16), width=15, anchor="w")
-        self.emotion_value.place(x=180, y=420)
+        self.emotion_value.place(x=200, y=420)
 
-        self.rest_message = Label(root, text="Cảnh Báo:", font=("Helvetica", 16), bg="light blue", width=10, anchor="w")
+        self.rest_message = Label(root, text="Cảnh Báo:", font=("Helvetica", 16), bg="light blue", width=15, anchor="w")
         self.rest_message.place(x=10, y=460)
 
         self.rest_value = Label(root, text="", font=("Helvetica", 16), fg="red", width=15, anchor="w")
-        self.rest_value.place(x=180, y=460)
+        self.rest_value.place(x=200, y=460)
+
+        self.heart_rate_label = Label(root, text="Nhịp Tim:", font=("Helvetica", 16), bg="light blue", width=15, anchor="w")
+        self.heart_rate_label.place(x=10, y=500)
+
+        self.heart_rate_value = Label(root, text="Đang đọc...", font=("Helvetica", 16), width=15, anchor="w")
+        self.heart_rate_value.place(x=200, y=500)
 
         self.reset_button = Button(root, text="Reset", font=("Helvetica", 16), command=self.reset_app)
-        self.reset_button.place(x=10, y=500)
+        self.reset_button.place(x=10, y=540)
 
         try:
             self.camera = RealSenseCamera()
@@ -49,8 +56,22 @@ class EmotionRecognitionApp:
             self.camera = None
             self.processor = None
 
+        self.arduino_reader = None
+        try:
+            self.arduino_reader = ArduinoReader(port='COM11')  # Thay thế 'COM3' bằng cổng serial của Arduino của bạn
+            self.special_message.config(text="")
+        except Exception as e:
+            if self.camera is None:
+                self.special_message.config(text="Không tìm thấy camera và Arduino!")
+            else:
+                self.special_message.config(text="Không tìm thấy Arduino!")
+            self.arduino_reader = None
+
         if self.camera and self.processor:
             self.update_video()
+
+        if self.arduino_reader:
+            self.update_heart_rate()
 
     def reset_app(self):
         self.root.destroy()
@@ -104,6 +125,13 @@ class EmotionRecognitionApp:
                 self.depth_frame.configure(image=imgtk_depth)
 
         self.root.after(50, self.update_video)  # Cập nhật video mỗi 50ms
+
+    def update_heart_rate(self):
+        if self.arduino_reader:
+            heart_rate = self.arduino_reader.read_data()
+            if heart_rate is not None:
+                self.heart_rate_value.config(text=str(heart_rate))
+            self.root.after(1000, self.update_heart_rate)  # Cập nhật nhịp tim mỗi giây
 
 def main():
     root = tk.Tk()
